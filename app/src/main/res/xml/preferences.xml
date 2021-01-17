@@ -1,0 +1,27 @@
+<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <SwitchPreferenceCompat
+        app:key="DarkTheme"
+        app:title="@string/enable_darkmode"
+        app:icon="@drawable/ic_theme_light_dark"
+        />
+
+    <Preference
+        app:key="sleep_timer"
+        app:title="@string/sleep_timer_title"
+        app:icon="@drawable/ic_music_rest_quarter"/>
+
+    <Preference
+        app:key="Feedback"
+        app:title="@string/give_feedback"
+        app:summary="Report technical issues or suggest new features"
+        app:icon="@drawable/ic_message_text_outline"
+        />
+
+    <Preference
+        app:key="Licence"
+        app:title="@string/license"
+        app:summary="@string/license_summary"
+        app:icon="@drawable/ic_document"/>
+
+</PreferenceScreen>

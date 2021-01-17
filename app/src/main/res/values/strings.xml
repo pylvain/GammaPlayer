@@ -1,0 +1,23 @@
+<resources>
+    <!-- main -->
+    <string name="app_name">Gamma</string>
+    <string name="author">Pylvain</string>
+
+    <!-- settings -->
+    <string name="enable_darkmode">Enable dark mode</string>
+    <string name="give_feedback">Give feedback</string>
+    <string name="license">License</string>
+    <string name="audio">Audio</string>
+    <string name="license_summary">GNU GPLv3</string>
+    <string name="title_activity_library">ScrollingActivity</string>
+    <string name="sleep_timer_title">Sleep timer</string>
+
+    <!-- Navigation -->
+    <string name="bottom_navigation_menu_last_played">Last Played</string>
+    <string name="bottom_navigation_menu_new">New</string>
+    <string name="importing">Importing ...</string>
+    <string name="done">Done</string>
+    <string name="library_add">Add a library</string>
+    <string name="library_manager">Manage libraries</string>
+
+</resources>

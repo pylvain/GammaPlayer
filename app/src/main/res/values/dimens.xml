@@ -1,0 +1,13 @@
+<resources>
+    <dimen name="app_bar_height">180dp</dimen>
+    <dimen name="fab_margin">16dp</dimen>
+    <dimen name="text_margin">16dp</dimen>
+
+    <!-- player !-->
+
+    <dimen name="controls_margin">20dp</dimen>
+    <dimen name="button_bar_height">55dp</dimen>
+    <dimen name="button_bar_buttons_margin">10dp</dimen>
+    <dimen name="title_height">50dp</dimen>
+
+</resources>
