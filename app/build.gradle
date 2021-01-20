@@ -23,7 +23,7 @@ android {
 
     defaultConfig {
         applicationId "pylvain.gamma"
-        minSdkVersion 23
+        minSdkVersion 21
         targetSdkVersion 30
         versionCode 1
         versionName "1.0"
@@ -86,7 +86,9 @@ dependencies {
     implementation "androidx.lifecycle:lifecycle-common-java8:$lifecycle_version"
     implementation "androidx.lifecycle:lifecycle-viewmodel-savedstate:$lifecycle_version"
 
-    implementation 'com.google.android.exoplayer:exoplayer:2.12.0'
+    def exo_version = "2.12.3"
+    implementation "com.google.android.exoplayer:exoplayer:$exo_version"
+    implementation "com.google.android.exoplayer:extension-mediasession:$exo_version"
 
     def room_version = "2.2.6"
     implementation "androidx.room:room-runtime:$room_version"

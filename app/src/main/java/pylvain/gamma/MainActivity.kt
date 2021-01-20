@@ -1,30 +1,18 @@
 package pylvain.gamma
 
-import android.content.Context
-import android.content.SharedPreferences
+import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.ViewModel
-import androidx.navigation.NavController
-import androidx.navigation.findNavController
-import androidx.navigation.navGraphViewModels
-import com.google.android.exoplayer2.SimpleExoPlayer
 import kotlinx.coroutines.*
 import org.koin.android.ext.android.inject
-import org.koin.android.ext.koin.androidContext
-import org.koin.android.ext.koin.androidLogger
-import org.koin.androidx.experimental.dsl.viewModel
-import org.koin.androidx.viewmodel.compat.ScopeCompat.viewModel
-import org.koin.androidx.viewmodel.dsl.viewModel
 import org.koin.androidx.viewmodel.ext.android.viewModel
-import org.koin.core.context.startKoin
-import org.koin.dsl.module
+import pylvain.gamma.MainApplication.Companion.mainContext
 import pylvain.gamma.library.BookDatabase
 import pylvain.gamma.library.LibraryUtils
 import pylvain.gamma.player.BookPlayer
+import pylvain.gamma.playerservice.PlayerService
 import pylvain.gamma.viewmodels.PlayerVM
 import timber.log.Timber
-import timber.log.Timber.DebugTree
 import java.io.File
 
 
@@ -47,6 +35,7 @@ class MainActivity : AppCompatActivity() {
             libraryUtils.apply {
                 deleteDB()
                 addLibrary(File("/storage/self/primary/Audiobooks"))
+                addLibrary(File("/sdcard/Audiobooks"))
             }
             val books = db.bookDao().getAll()
             Timber.d("Found ${books.size} books")
@@ -57,7 +46,13 @@ class MainActivity : AppCompatActivity() {
 
             bp.next()
             //playerVM.onNext()
+
+            delay(300)
+
+            startService(Intent(mainContext, PlayerService::class.java))
         }}
+
+
 
         Timber.i("MAIN")
 

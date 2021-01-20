@@ -8,8 +8,6 @@ import androidx.room.ForeignKey.CASCADE
 import org.koin.core.component.KoinComponent
 import pylvain.gamma.*
 
-//TODO bookmarks Pair<String,Int> Or Pair<Int,Int>?
-
 @Entity(tableName = "libraries")
 data class LibraryEntry(
     @PrimaryKey var source: String,
@@ -30,7 +28,8 @@ data class BookEntry(
     @PrimaryKey var source: String,
     var librarySource: String,
     var playlist: List<String>, // -> Files
-    var name: String,
+    var title: String,
+    var author: String,
     var totalDuration: Long = -1,
     var dateAdded: Long,
     var fileSizeSum: Long,
@@ -83,6 +82,7 @@ data class BookmarkEntry(
 data class FileEntry(
     @PrimaryKey var source: String,
     var sourceBook: String,
+    var kind: String,
     var size: Long = 0, //serve as hash
     var duration: Long = 0,
 )
@@ -197,7 +197,10 @@ interface FileDAO {
     [BookEntry::class, LibraryEntry::class, BookmarkEntry::class, FileEntry::class]
 )
 @TypeConverters(Converters::class)
-abstract class BookDatabase : RoomDatabase(), KoinComponent {
+abstract class BookDatabase : RoomDatabase() {
+
+    lateinit var context: Context
+        private set
 
     abstract fun bookDao(): BookDAO
     abstract fun libraryDao(): LibraryDAO
@@ -207,8 +210,9 @@ abstract class BookDatabase : RoomDatabase(), KoinComponent {
     companion object {
         fun makeDB(context: Context): BookDatabase = Room.databaseBuilder(
             context.applicationContext, BookDatabase::class.java, Const.DB_NAME
-        ).build()
+        ).build().also{ it.context = context.applicationContext }
     }
+
 }
 
 

@@ -1,9 +1,20 @@
 package pylvain.gamma.player
 
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.media.AudioManager
 import android.media.audiofx.LoudnessEnhancer
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import android.support.v4.media.MediaMetadataCompat
+import android.support.v4.media.session.PlaybackStateCompat.STATE_NONE
+import android.support.v4.media.session.PlaybackStateCompat.STATE_PLAYING
+import android.support.v4.media.session.PlaybackStateCompat.STATE_BUFFERING
+import android.support.v4.media.session.PlaybackStateCompat.STATE_STOPPED
+import android.support.v4.media.session.PlaybackStateCompat.STATE_PAUSED
+import android.support.v4.media.session.PlaybackStateCompat
 import com.google.android.exoplayer2.*
 import com.google.android.exoplayer2.Player.STATE_ENDED
 import com.google.android.exoplayer2.audio.AudioListener
@@ -13,12 +24,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import org.koin.core.component.KoinComponent
-import org.koin.java.KoinJavaComponent.inject
 import pylvain.gamma.Const
 import pylvain.gamma.formatMs
 import pylvain.gamma.library.*
 import timber.log.Timber
+import java.io.File
 import java.lang.Exception
 
 
@@ -27,6 +37,7 @@ import java.lang.Exception
  */
 
 class BookPlayer(
+    val context: Context,
     val player: SimpleExoPlayer,
     val db: BookDatabase,
     val libraryUtils: LibraryUtils
@@ -34,14 +45,88 @@ class BookPlayer(
 
     //private val player by inject<SimpleExoPlayer>()
 
+    //TODO inject that ?
+
     lateinit var book: BookEntry
         private set
-    lateinit var files: Map<String, FileEntry>
+    lateinit var files: Map<String, FileEntry> //TODO is that needed ?
         private set
     lateinit var currentBookmark: BookmarkEntry
         private set
 
     var pauseRewindMs = 2000L
+
+    //TODO------------------------------------------------------------------------------------------
+
+    /* val audioManager = AudioManager()
+
+    */
+
+    val audioFocusHelper = object : AudioManager.OnAudioFocusChangeListener {
+
+        private fun requestAudioFocus(): Boolean = true
+        private fun abandonAudioFocus() {}
+
+        override fun onAudioFocusChange(focusChange: Int) {}
+
+    }
+
+
+    private val bookPlaybackStateBuilder by lazy {
+        PlaybackStateCompat.Builder()
+            .setActions(
+                PlaybackStateCompat.ACTION_FAST_FORWARD or
+                        PlaybackStateCompat.ACTION_PAUSE or
+                        PlaybackStateCompat.ACTION_PLAY or
+                        PlaybackStateCompat.ACTION_PLAY_PAUSE or
+                        PlaybackStateCompat.ACTION_REWIND or
+                        PlaybackStateCompat.ACTION_SEEK_TO or
+                        PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
+                        PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
+                        PlaybackStateCompat.ACTION_STOP
+            )
+    }
+
+    private fun makeState(state: Int) = bookPlaybackStateBuilder
+        .setState(state, player.currentPosition, book.settings.speed).build()
+
+    var playbackState: PlaybackStateCompat = bookPlaybackStateBuilder.build() //TODO
+        private set
+
+    var state: Int
+        private set(v) {
+            playbackState = makeState(v)
+            emitMessage(makeMessage(MessageEmitReason.STATE_CHANGED))
+        }
+        get() = playbackState.state
+
+    //----------------------------------------------------------------------------------------------
+
+    private val cover by lazy { BitmapFactory.decodeFile(libraryUtils.getCover(File(book.source))) }
+
+    private val bookMetadataBuilder by lazy {
+        MediaMetadataCompat.Builder()
+            .putBitmap(MediaMetadataCompat.METADATA_KEY_ART, cover)
+            .putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, cover)
+            .putString(MediaMetadataCompat.METADATA_KEY_GENRE, "Audiobook")
+            .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, book.title)
+            .putString(MediaMetadataCompat.METADATA_KEY_ALBUM_ARTIST, book.author)
+            .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, book.author)
+            .putString(MediaMetadataCompat.METADATA_KEY_AUTHOR, book.author)
+            .putString(MediaMetadataCompat.METADATA_KEY_COMPOSER, book.author)
+    }
+
+    fun getMetadata(): MediaMetadataCompat = bookMetadataBuilder
+        .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, player.duration)
+        .putLong(MediaMetadataCompat.METADATA_KEY_TRACK_NUMBER, currentIndex().toLong())
+        .putString(
+            MediaMetadataCompat.METADATA_KEY_TITLE,
+            File(fileAtIndex(currentIndex()).source).nameWithoutExtension
+        )
+        .build()
+
+
+    //----------------------------------------------------------------------------------------------
 
     /*
     The state property does not refers to the actual player.playbackState, but to a more general
@@ -49,9 +134,8 @@ class BookPlayer(
     player does stop between two consequent files, the state will and should remain State.PLAYING.
      */
 
-    enum class PlayerState { PLAYING, PAUSED, ENDED, STOPPED, NOT_READY }
-
-    var state: PlayerState
+    /*
+    var state: PlaybackStateCompat
         private set(value) {
             if (value != _state.value) {
                 _state.value = value
@@ -60,8 +144,8 @@ class BookPlayer(
         }
         get() = _state.value
 
-    val _state = MutableStateFlow(PlayerState.NOT_READY)
-    fun stateAsFlow(): StateFlow<PlayerState> = _state.asStateFlow()
+    private val _state = MutableStateFlow(bookPlaybackStateBuilder.build())*/
+    //fun stateAsFlow(): StateFlow<PlaybackStateCompat> = _state.asStateFlow()
 
     //Messages--------------------------------------------------------------------------------------
 
@@ -71,9 +155,10 @@ class BookPlayer(
 
     data class PlayerDataMessage(
         var reasonEmitted: MessageEmitReason = MessageEmitReason.INIT,
-        var state: PlayerState = PlayerState.NOT_READY,
+        var state: Int = STATE_NONE,
         var globalProgress: Pair<Long, Long> = 0L to 0L,
         var localProgress: Pair<Long, Long> = 0L to 0L,
+        var title: String = ""
     )
 
     private val _messageFlow = MutableStateFlow<PlayerDataMessage>(PlayerDataMessage())
@@ -81,9 +166,10 @@ class BookPlayer(
 
     fun makeMessage(reasonEmitted: MessageEmitReason) = PlayerDataMessage(
         reasonEmitted,
-        state = state,
+        state = this@BookPlayer.state,
         globalProgress = globalPosition() to book.totalDuration,
-        localProgress = player.currentPosition to fileAtIndex(currentIndex()).duration
+        localProgress = player.currentPosition to fileAtIndex(currentIndex()).duration,
+        title = currentIndex().toString()
     )
 
     fun emitMessage(message: PlayerDataMessage) {
@@ -110,7 +196,7 @@ class BookPlayer(
         override fun run() {
             if (tickEnabled) {
                 emitMessage(makeMessage(MessageEmitReason.TICK))
-            }
+            } //TODO load metadata
             mainHandler.postDelayed(this, tickIntervalMs)
         }
     }
@@ -132,7 +218,7 @@ class BookPlayer(
 //----------------------------------------------------------------------------------------------
 
     fun loadBook(source: String) {
-        state = PlayerState.NOT_READY
+        //state = STATE_BUFFERING
         downloadData(source)
         if (book.totalDuration < 1L) {
             libraryUtils.computeBookDuration(book.source)
@@ -142,7 +228,7 @@ class BookPlayer(
         loadSettings()
         jumpTo(currentBookmark)
         setAutomaticPlayNext(true)
-        state = PlayerState.STOPPED
+        state = STATE_STOPPED
     }
 
     fun loadSettings(settings: BookSettings = book.settings) {
@@ -206,16 +292,18 @@ class BookPlayer(
 
 //----------------------------------------------------------------------------------------------
 
-    private fun bufferFile(source: String) {
-        player.stop(true)
-        player.addMediaItem(MediaItem.fromUri(Uri.parse(source)))
-        player.prepare()
-    }
-
     /*
         All position changes go through this function
      */
+
     fun jumpTo(bookmark: BookmarkEntry, keepIfPlaying: Boolean = true) {
+
+        fun bufferFile(source: String) {
+            player.stop(true)
+            player.addMediaItem(MediaItem.fromUri(Uri.parse(source)))
+            player.prepare()
+        }
+
         Timber.i("Jumping at ${formatMs(bookmark.time)} in file :${bookmark.file}")
 
         if (bookmark.file != currentBookmark.file || player.mediaItemCount == 0)
@@ -224,10 +312,10 @@ class BookPlayer(
         player.seekTo(bookmark.time)
         setCurrentBookmark(bookmark)
 
-        if (state == PlayerState.PLAYING && keepIfPlaying) player.play() // Hmm
+        if (state == STATE_PLAYING && keepIfPlaying) player.play() // Hmm
         else {
             player.pause()
-            state = PlayerState.PAUSED
+            state = STATE_PAUSED
         }
 
         uploadBookmark()
@@ -248,6 +336,10 @@ class BookPlayer(
         BookmarkEntry(file = file, time = timeMs)
     )
 
+    fun jumpTo(timeMs: Long) {
+        jumpTo(book.playlist[currentIndex()], timeMs)
+    }
+
     private fun jumpToIndex(index: Int, timeMs: Long) {
         if (index >= 0 && index < files.size)
             jumpTo(BookmarkEntry(file = fileAtIndex(index).source, time = timeMs))
@@ -255,7 +347,7 @@ class BookPlayer(
     }
 
     private fun fileAtIndex(index: Int): FileEntry =
-        files[book.playlist[index]] ?: throw Exception("fileAtIndex")
+        files[book.playlist[index]] ?: throw Exception("fileAtIndex($index)")
 
 //----------------------------------------------------------------------------------------------
 
@@ -298,7 +390,7 @@ class BookPlayer(
     fun next() = currentIndex().let { index ->
         if (index < book.playlist.size - 1) {
             jumpToIndex(index + 1, 0L)
-        } else state = PlayerState.ENDED
+        } else state = STATE_STOPPED
     }
 
     fun previous(guard: Boolean = true) = currentIndex().let { index ->
@@ -307,32 +399,34 @@ class BookPlayer(
         else jumpToIndex(0, 0L)
     }
 
-    fun togglePlayPause() = if (state == PlayerState.PLAYING) pause() else play()
+    fun togglePlayPause() {
+        if (state == STATE_PLAYING) pause() else play()
+    }
 
     fun play() {
         when (state) {
-            PlayerState.PAUSED, PlayerState.STOPPED -> {
-                if (player.mediaItemCount < 1 || state == PlayerState.STOPPED)
+            STATE_PAUSED, STATE_STOPPED -> { // TODO STOPPED = end
+                if (player.mediaItemCount < 1 || state == STATE_STOPPED)
                     jumpTo(currentBookmark)
                 player.play()
-                state = PlayerState.PLAYING
+                state = STATE_PLAYING
             }
-            PlayerState.ENDED, PlayerState.PLAYING, PlayerState.NOT_READY -> Unit
+            else -> Unit
         }
     }
 
-    fun pause() {
-        if (state == PlayerState.PLAYING) {
-            state = PlayerState.PAUSED
+    fun pause(rewind: Boolean = true) {
+        if (state == STATE_PLAYING) {
+            state = STATE_PAUSED
             player.pause()
-            if (pauseRewindMs > 0L) {
+            if ( rewind && pauseRewindMs > 0L) {
                 seek(-pauseRewindMs, noPrevious = true)
             }
         }
     }
 
     fun stop() {
-        state = PlayerState.STOPPED
+        state = STATE_STOPPED
         player.stop()
     }
 //----------------------------------------------------------------------------------------------

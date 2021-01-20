@@ -12,7 +12,7 @@ import com.google.android.material.snackbar.Snackbar
 import org.koin.android.ext.android.inject
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import pylvain.gamma.MainApplication.Companion.context
+import pylvain.gamma.MainApplication.Companion.mainContext
 import pylvain.gamma.R
 import pylvain.gamma.library.BookEntry
 import pylvain.gamma.databinding.BookLibraryFragmentBinding
@@ -58,22 +58,22 @@ class BookLibraryFragment : Fragment() {
     class ViewAdapter(var dataSet: List<BookEntry>) : KoinComponent,
         RecyclerView.Adapter<ViewAdapter.ViewHolder>() {
 
-        val lvm: LibraryUtils by inject()
+        val lvm: LibraryUtils by inject() //TODO inner class
         val db:BookDatabase by inject()
 
         class ViewHolder(val view: BookListElementBinding) : RecyclerView.ViewHolder(view.root) {}
 
         override fun onCreateViewHolder(viewGroup: ViewGroup, viewType: Int) = ViewHolder(
-            BookListElementBinding.inflate(LayoutInflater.from(context))
+            BookListElementBinding.inflate(LayoutInflater.from(mainContext))
         )
 
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-            val coverUri: Uri = lvm.getCover(File(dataSet[position].source))
+            val coverUri: Uri = Uri.parse(lvm.getCover(File(dataSet[position].source)))
             val entry: BookEntry = db.bookDao().getBySource(dataSet[position].source) ?: return
             holder.view.apply {
                 cover.setImageURI(coverUri)
                 folderName.text = File(entry.source).name
-                title.text = entry.name
+                title.text = entry.title
                 progress.progress = (0..100).random()
             }
         }

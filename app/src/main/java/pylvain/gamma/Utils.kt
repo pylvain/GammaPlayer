@@ -40,7 +40,7 @@ suspend fun <A, B> Iterable<A>.pmap(f: suspend (A) -> B): List<B> = coroutineSco
     map { async { f(it) } }.awaitAll()
 }
 
-fun logd(msg: Any) = Timber.i("DEBUG", msg.toString())
+fun logd(msg: Any) = Timber.i( msg.toString())
 
 
 fun formatMs(timeMs: Long): String? {
